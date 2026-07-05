@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Admin — S. Thejas</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Firebase: Auth (login) + Firestore (content) + Storage (photos/artwork files) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+:root{
+  --bg:#0a0a0b; --bg-alt:#131315; --bg-card:#18181b; --fg:#f4f2ec; --muted:#9a978f;
+  --accent:#cda746; --accent-soft:#e2d39a; --line:rgba(244,242,236,0.09); --danger:#d96a5a;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--fg);font-family:'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;}
+img{max-width:100%;display:block;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+.wrap{max-width:900px;margin:0 auto;padding:0 24px;}
+.eyebrow{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-soft);font-weight:600;}
+.page-header{padding:22px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(10,10,11,.92);backdrop-filter:blur(10px);z-index:30;}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.05em;}
+.back-link{font-size:14px;font-weight:600;color:var(--muted);}
+.back-link:hover{color:var(--fg);}
+.btn{padding:10px 20px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid var(--accent-soft);color:var(--accent-soft);transition:all .2s;}
+.btn:hover{background:var(--accent-soft);color:#141410;}
+.btn.solid{background:var(--accent);border-color:var(--accent);color:#141410;}
+.btn.solid:hover{background:var(--accent-soft);border-color:var(--accent-soft);}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.small-btn{padding:8px 14px;border-radius:8px;background:var(--bg-card);border:1px solid var(--line);font-size:12px;font-weight:600;}
+.small-btn:hover{border-color:var(--accent-soft);}
+.admin-lock{min-height:80vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.lock-box{background:var(--bg-alt);border:1px solid var(--line);border-radius:18px;padding:40px;max-width:360px;width:100%;text-align:center;}
+.lock-box h2{margin-bottom:8px;}
+.lock-box p{color:var(--muted);font-size:14px;margin-bottom:22px;}
+.lock-error{color:var(--danger);font-size:13px;margin-top:10px;min-height:16px;}
+.setup-note{background:#3a2a12;border:1px solid var(--accent);border-radius:10px;padding:14px;margin-bottom:20px;font-size:13px;text-align:left;color:var(--accent-soft);}
+.admin-tabs{display:flex;gap:8px;margin:30px 0;flex-wrap:wrap;}
+.admin-tab{padding:10px 18px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--muted);}
+.admin-tab.active{border-color:var(--accent);color:var(--accent-soft);background:var(--bg-card);}
+.admin-card{background:var(--bg-alt);border:1px solid var(--line);border-radius:16px;padding:26px;margin-bottom:20px;}
+.admin-card h3{margin-bottom:18px;font-size:18px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr;}}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;}
+.field input,.field textarea,.field select{width:100%;background:var(--bg-card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;color:var(--fg);font-size:14px;font-family:inherit;}
+.field textarea{resize:vertical;min-height:100px;}
+.field input:focus,.field textarea:focus,.field select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+.list-item{display:flex;align-items:center;gap:14px;padding:12px;border-radius:10px;border:1px solid var(--line);margin-bottom:10px;flex-wrap:wrap;}
+.list-item img{width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;background:var(--bg-card);}
+.list-item .grow{flex:1;min-width:120px;}
+.list-item .grow b{display:block;font-size:14px;}
+.list-item .grow span{font-size:12px;color:var(--muted);}
+.icon-btn{width:34px;height:34px;border-radius:8px;background:var(--bg-card);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.icon-btn:hover{background:var(--line);}
+.icon-btn.danger:hover{color:var(--danger);}
+.empty-state{padding:40px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px;}
+.hint{font-size:12px;color:var(--muted);margin-top:6px;}
+.uploader{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.uploader img{width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--bg-card);flex-shrink:0;}
+.uploader-drop{flex:1;min-width:180px;border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;position:relative;cursor:pointer;transition:border-color .2s,background .2s;}
+.uploader-drop:hover{border-color:var(--accent-soft);background:var(--bg-card);}
+.uploader-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.uploader-drop .lbl{font-size:13px;font-weight:600;color:var(--accent-soft);}
+.uploader-drop .sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.uploading{color:var(--accent-soft);font-size:12px;font-weight:600;margin-top:8px;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--fg);color:#141410;padding:12px 22px;border-radius:999px;font-size:13px;font-weight:600;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+/* =====================================================================
+   ADMIN PANEL — separate page from the public site on purpose.
+   Nobody browsing the public site will ever see a link to this file;
+   you simply bookmark this page's URL yourself (rename the file to
+   something private if you like, e.g. studio-manage.html).
+
+   ONE-TIME SETUP
+   1. https://console.firebase.google.com → create a free project.
+   2. Build > Firestore Database > Create database (production mode).
+   3. Build > Authentication > Sign-in method > enable "Email/Password".
+   4. Build > Authentication > Users > Add user → this is YOUR login
+      (use your own email + a strong password, not "thejas2026" etc).
+   5. Build > Storage > Get started (for photos & song artwork files).
+   6. Project settings (gear icon) > General > "Your apps" > Web app
+      → copy the config object and paste it below, replacing the
+      placeholder values. Paste the SAME config into index.html.
+   7. Firestore > Rules — paste:
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            match /sitedata/{docId} {
+              allow read: if true;
+              allow write: if request.auth != null;
+            }
+          }
+        }
+   8. Storage > Rules — paste:
+        rules_version = '2';
+        service firebase.storage {
+          match /b/{bucket}/o {
+            match /{allPaths=**} {
+              allow read: if true;
+              allow write: if request.auth != null;
+            }
+          }
+        }
+===================================================================== */
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_API_KEY",
+  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+  projectId: "PASTE_YOUR_PROJECT_ID",
+  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID",
+  appId: "PASTE_YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storageRef = firebase.storage();
+
+const CATEGORIES = ["Design & Brand Identity","Photography","Videography","Video Editing"];
+
+const DEFAULT_SITE = {
+  logoImage:"", logoText:"S.THEJAS",
+  heroImage:"", heroName:"S. THEJAS", heroTagline:"I'm an Artist",
+  heroBio:"", aboutPhoto:"", aboutCopy:"",
+  stat1n:"120+", stat1l:"Projects Delivered",
+  stat2n:"40+", stat2l:"Brands & Artists",
+  stat3n:"8", stat3l:"Years Active",
+  email:"", phone:"", location:"",
+  social:{linkedin:"",instagram:"",youtube:"",facebook:""}
+};
+const DEFAULT_MUSIC = { artistName:"", artistPhoto:"", bannerImage:"", songs:[], albums:[] };
+
+let site = structuredClone(DEFAULT_SITE);
+let projects = [];
+let music = structuredClone(DEFAULT_MUSIC);
+let adminUnlocked = false;
+let adminTab = "site";
+
+/* ---------- helpers ---------- */
+function uid(){ return "id"+Math.random().toString(36).slice(2,10); }
+function esc(str){ return (str||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove("show"), 2400);
+}
+
+/* ---------- Firestore read/write ---------- */
+async function getDocData(name){
+  try{ const snap = await db.collection("sitedata").doc(name).get(); return snap.exists ? snap.data() : null; }
+  catch(e){ console.error(e); return null; }
+}
+async function setDocData(name, data){
+  try{ await db.collection("sitedata").doc(name).set(data); return true; }
+  catch(e){ console.error("firestore error", e); showToast("Save failed — check your Firebase setup."); return false; }
+}
+async function loadAll(){
+  const [s,p,m] = await Promise.all([getDocData("site"),getDocData("projects"),getDocData("music")]);
+  if(s) site = Object.assign(structuredClone(DEFAULT_SITE), s);
+  if(p && p.list) projects = p.list;
+  if(m) music = Object.assign(structuredClone(DEFAULT_MUSIC), m);
+}
+async function saveSite(){ return await setDocData("site", site); }
+async function saveProjects(){ return await setDocData("projects", {list: projects}); }
+async function saveMusic(){ return await setDocData("music", music); }
+
+/* ---------- Firebase Storage upload (this is the ONLY way images get added) ---------- */
+async function uploadToStorage(file, folder, onProgress){
+  if(!file) return null;
+  if(file.size > 8*1024*1024){ showToast("File too large — please use an image under 8MB."); return null; }
+  const path = `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"")}`;
+  const ref = storageRef.ref().child(path);
+  const task = ref.put(file);
+  return new Promise((resolve,reject)=>{
+    task.on("state_changed",
+      snap=>{ if(onProgress) onProgress(Math.round((snap.bytesTransferred/snap.totalBytes)*100)); },
+      err=>{ console.error(err); showToast("Upload failed — check Storage rules are set."); reject(err); },
+      async ()=>{ const url = await task.snapshot.ref.getDownloadURL(); resolve(url); }
+    );
+  });
+}
+
+/* ---------- auth ---------- */
+auth.onAuthStateChanged(user=>{
+  adminUnlocked = !!user;
+  render();
+});
+function tryLogin(){
+  const email = document.getElementById("emailInput").value.trim();
+  const pass = document.getElementById("pwInput").value;
+  const errEl = document.getElementById("lockErr");
+  errEl.textContent = "Signing in…";
+  auth.signInWithEmailAndPassword(email, pass)
+    .catch(()=>{ errEl.textContent = "Login failed — check email and password."; });
+}
+function adminLogoutFn(){ auth.signOut(); }
+
+/* ---------- boot ---------- */
+async function boot(){ await loadAll(); render(); }
+
+function render(){
+  const needsSetup = firebaseConfig.apiKey === "PASTE_YOUR_API_KEY";
+  if(!adminUnlocked){
+    document.getElementById("app").innerHTML = `
+    <div class="page-header">
+      <a href="index.html" class="back-link">← Back to site</a>
+      <div class="page-title">STUDIO ADMIN</div>
+      <div style="width:90px;"></div>
+    </div>
+    <div class="admin-lock">
+      <div class="lock-box">
+        ${needsSetup ? `<div class="setup-note">Firebase isn't connected yet — open this file in a text editor, paste your project's config near the top of the &lt;script&gt; tag, and complete the setup steps in the comment above it.</div>` : ``}
+        <h2>Admin login</h2>
+        <p>Sign in with the account you created in Firebase Authentication.</p>
+        <div class="field"><input type="email" id="emailInput" placeholder="Email" onkeydown="if(event.key==='Enter')document.getElementById('pwInput').focus()"></div>
+        <div class="field"><input type="password" id="pwInput" placeholder="Password" onkeydown="if(event.key==='Enter')tryLogin()"></div>
+        <button class="btn solid" style="width:100%;padding:12px;" onclick="tryLogin()">Log in</button>
+        <div class="lock-error" id="lockErr"></div>
+      </div>
+    </div>`;
+    return;
+  }
+  document.getElementById("app").innerHTML = `
+  <div class="page-header">
+    <a href="index.html" class="back-link">← Back to site</a>
+    <div class="page-title">STUDIO ADMIN</div>
+    <button class="small-btn" onclick="adminLogoutFn()">Log out</button>
+  </div>
+  <div class="wrap" style="padding-top:20px;padding-bottom:100px;">
+    <div class="admin-tabs">
+      <button class="admin-tab ${adminTab==='site'?'active':''}" onclick="setTab('site')">Site & Logo</button>
+      <button class="admin-tab ${adminTab==='projects'?'active':''}" onclick="setTab('projects')">Projects</button>
+      <button class="admin-tab ${adminTab==='music'?'active':''}" onclick="setTab('music')">Music</button>
+    </div>
+    <div id="body"></div>
+  </div>`;
+  renderTab();
+}
+function setTab(t){ adminTab = t; render(); }
+function renderTab(){
+  const el = document.getElementById("body");
+  if(adminTab === "site") el.innerHTML = siteForm();
+  if(adminTab === "projects") el.innerHTML = projectsPanel();
+  if(adminTab === "music") el.innerHTML = musicPanel();
+}
+
+/* ---------- reusable uploader widget ---------- */
+function uploaderHTML(id, currentUrl, label){
+  return `
+  <div class="uploader" id="${id}_wrap">
+    <img id="${id}_prev" src="${esc(currentUrl)}" style="${currentUrl?'':'display:none;'}">
+    <div class="uploader-drop">
+      <input type="file" accept="image/*" id="${id}_input">
+      <div class="lbl">${label || 'Click to upload a photo'}</div>
+      <div class="sub">JPG or PNG, up to 8MB</div>
+    </div>
+  </div>
+  <div class="uploading" id="${id}_status"></div>`;
+}
+function wireUploader(id, folder, onDone){
+  const input = document.getElementById(id+"_input");
+  if(!input) return;
+  input.onchange = async ()=>{
+    const file = input.files[0]; if(!file) return;
+    const statusEl = document.getElementById(id+"_status");
+    statusEl.textContent = "Uploading… 0%";
+    try{
+      const url = await uploadToStorage(file, folder, pct=>{ statusEl.textContent = `Uploading… ${pct}%`; });
+      if(url){
+        document.getElementById(id+"_prev").src = url;
+        document.getElementById(id+"_prev").style.display = "block";
+        statusEl.textContent = "Uploaded ✓";
+        onDone(url);
+      } else { statusEl.textContent = ""; }
+    }catch(e){ statusEl.textContent = ""; }
+  };
+}
+
+/* ============================= SITE TAB ============================= */
+function siteForm(){
+  return `
+  <div class="admin-card">
+    <h3>Logo</h3>
+    ${uploaderHTML("logo", site.logoImage, "Click to upload your logo")}
+    <button class="small-btn" style="margin-top:10px;" onclick="site.logoImage='';saveSite();renderTab();">Remove logo image</button>
+    <div class="hint">If no logo image is uploaded, the text below shows instead.</div>
+    <div class="field" style="margin-top:14px;"><label>Logo text</label><input id="f_logoText" value="${esc(site.logoText)}"></div>
+  </div>
+
+  <div class="admin-card">
+    <h3>Hero photo</h3>
+    ${uploaderHTML("hero", site.heroImage, "Click to upload your hero photo")}
+  </div>
+
+  <div class="admin-card">
+    <h3>Hero text</h3>
+    <div class="form-grid">
+      <div class="field"><label>Display name</label><input id="f_heroName" value="${esc(site.heroName)}"></div>
+      <div class="field"><label>Tagline</label><input id="f_heroTagline" value="${esc(site.heroTagline)}"></div>
+    </div>
+    <div class="field"><label>Bio</label><textarea id="f_heroBio">${esc(site.heroBio)}</textarea></div>
+  </div>
+
+  <div class="admin-card">
+    <h3>About section</h3>
+    ${uploaderHTML("about", site.aboutPhoto, "Click to upload your about photo")}
+    <div class="field" style="margin-top:14px;"><label>About copy</label><textarea id="f_aboutCopy" style="min-height:120px;">${esc(site.aboutCopy)}</textarea></div>
+    <div class="form-grid">
+      <div class="field"><label>Stat 1 number</label><input id="f_s1n" value="${esc(site.stat1n)}"></div>
+      <div class="field"><label>Stat 1 label</label><input id="f_s1l" value="${esc(site.stat1l)}"></div>
+      <div class="field"><label>Stat 2 number</label><input id="f_s2n" value="${esc(site.stat2n)}"></div>
+      <div class="field"><label>Stat 2 label</label><input id="f_s2l" value="${esc(site.stat2l)}"></div>
+      <div class="field"><label>Stat 3 number</label><input id="f_s3n" value="${esc(site.stat3n)}"></div>
+      <div class="field"><label>Stat 3 label</label><input id="f_s3l" value="${esc(site.stat3l)}"></div>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <h3>Contact & socials</h3>
+    <div class="form-grid">
+      <div class="field"><label>Email</label><input id="f_email" value="${esc(site.email)}"></div>
+      <div class="field"><label>Phone</label><input id="f_phone" value="${esc(site.phone)}"></div>
+      <div class="field"><label>Location</label><input id="f_location" value="${esc(site.location)}"></div>
+      <div class="field"><label>LinkedIn URL</label><input id="f_linkedin" value="${esc(site.social.linkedin)}"></div>
+      <div class="field"><label>Instagram URL</label><input id="f_instagram" value="${esc(site.social.instagram)}"></div>
+      <div class="field"><label>YouTube URL</label><input id="f_youtube" value="${esc(site.social.youtube)}"></div>
+      <div class="field"><label>Facebook URL</label><input id="f_facebook" value="${esc(site.social.facebook)}"></div>
+    </div>
+  </div>
+
+  <button class="btn solid" style="padding:14px 30px;" onclick="saveSiteForm()">Save all text changes</button>
+  <p class="hint">Photos save automatically the moment they finish uploading.</p>
+  `;
+}
+function wireSiteUploaders(){
+  wireUploader("logo","logos", async url=>{ site.logoImage=url; await saveSite(); showToast("Logo updated ✓"); });
+  wireUploader("hero","hero", async url=>{ site.heroImage=url; await saveSite(); showToast("Hero photo updated ✓"); });
+  wireUploader("about","about", async url=>{ site.aboutPhoto=url; await saveSite(); showToast("About photo updated ✓"); });
+}
+async function saveSiteForm(){
+  site.logoText = document.getElementById("f_logoText").value;
+  site.heroName = document.getElementById("f_heroName").value;
+  site.heroTagline = document.getElementById("f_heroTagline").value;
+  site.heroBio = document.getElementById("f_heroBio").value;
+  site.aboutCopy = document.getElementById("f_aboutCopy").value;
+  site.stat1n = document.getElementById("f_s1n").value; site.stat1l = document.getElementById("f_s1l").value;
+  site.stat2n = document.getElementById("f_s2n").value; site.stat2l = document.getElementById("f_s2l").value;
+  site.stat3n = document.getElementById("f_s3n").value; site.stat3l = document.getElementById("f_s3l").value;
+  site.email = document.getElementById("f_email").value;
+  site.phone = document.getElementById("f_phone").value;
+  site.location = document.getElementById("f_location").value;
+  site.social.linkedin = document.getElementById("f_linkedin").value;
+  site.social.instagram = document.getElementById("f_instagram").value;
+  site.social.youtube = document.getElementById("f_youtube").value;
+  site.social.facebook = document.getElementById("f_facebook").value;
+  const ok = await saveSite();
+  showToast(ok ? "Site text saved ✓" : "Save failed.");
+}
+
+/* ============================= PROJECTS TAB ============================= */
+let pendingProjectImage = null;
+function projectsPanel(){
+  return `
+  <div class="admin-card">
+    <h3>Add a project</h3>
+    <div class="form-grid">
+      <div class="field"><label>Title</label><input id="np_title" placeholder="Project title"></div>
+      <div class="field"><label>Category</label><select id="np_cat">${CATEGORIES.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+    </div>
+    <div class="field"><label>Cover photo</label>${uploaderHTML("np","", "Click to upload a cover photo")}</div>
+    <div class="field"><label>Description</label><textarea id="np_desc" placeholder="Short project description"></textarea></div>
+    <button class="btn solid" id="np_addBtn" onclick="addProject()">Add project</button>
+  </div>
+
+  <div class="admin-card">
+    <h3>Existing projects (${projects.length})</h3>
+    ${projects.map(p=>`
+      <div class="list-item">
+        <img src="${esc(p.image)}">
+        <div class="grow"><b>${esc(p.title)}</b><span>${esc(p.category)}</span></div>
+        <button class="icon-btn danger" onclick="deleteProject('${p.id}')">🗑</button>
+      </div>`).join("") || `<div class="empty-state">No projects yet.</div>`}
+  </div>`;
+}
+function wireProjectsUploaders(){
+  pendingProjectImage = null;
+  wireUploader("np","projects", url=>{ pendingProjectImage = url; });
+}
+async function addProject(){
+  const title = document.getElementById("np_title").value.trim();
+  const category = document.getElementById("np_cat").value;
+  const description = document.getElementById("np_desc").value.trim();
+  if(!title){ showToast("Please add a title."); return; }
+  if(!pendingProjectImage){ showToast("Please upload a cover photo first."); return; }
+  projects.unshift({id:uid(), title, category, image:pendingProjectImage, description});
+  pendingProjectImage = null;
+  const ok = await saveProjects();
+  showToast(ok ? "Project added ✓" : "Save failed.");
+  renderTab(); wireProjectsUploaders();
+}
+async function deleteProject(id){
+  projects = projects.filter(p=>p.id!==id);
+  await saveProjects();
+  showToast("Project removed.");
+  renderTab(); wireProjectsUploaders();
+}
+
+/* ============================= MUSIC TAB ============================= */
+let pendingSongArt = null;
+function musicPanel(){
+  return `
+  <div class="admin-card">
+    <h3>Artist profile</h3>
+    <div class="field"><label>Artist name</label><input id="m_name" value="${esc(music.artistName)}"></div>
+    <div class="field"><label>Artist photo</label>${uploaderHTML("artist", music.artistPhoto, "Click to upload artist photo")}</div>
+    <div class="field" style="margin-top:14px;"><label>Banner photo</label>${uploaderHTML("banner", music.bannerImage, "Click to upload a banner photo")}</div>
+    <button class="btn solid" style="margin-top:14px;" onclick="saveArtistName()">Save artist name</button>
+  </div>
+
+  <div class="admin-card">
+    <h3>Add a song</h3>
+    <div class="form-grid">
+      <div class="field"><label>Title</label><input id="ns_title" placeholder="Song title"></div>
+      <div class="field"><label>Album / label</label><input id="ns_album" placeholder="Album name"></div>
+      <div class="field"><label>Duration</label><input id="ns_dur" placeholder="3:24"></div>
+      <div class="field"><label>Direct audio file URL (optional)</label><input id="ns_audio" placeholder="https://.../song.mp3"></div>
+    </div>
+    <div class="field"><label>Artwork</label>${uploaderHTML("ns","", "Click to upload song artwork")}</div>
+    <div class="hint">Without an audio file URL, the song still shows with a working player UI, just no real playback.</div>
+    <button class="btn solid" style="margin-top:12px;" onclick="addSong()">Add song</button>
+  </div>
+
+  <div class="admin-card">
+    <h3>Songs (${music.songs.length})</h3>
+    ${music.songs.map(s=>`
+      <div class="list-item">
+        <img src="${esc(s.artwork)}">
+        <div class="grow"><b>${esc(s.title)}</b><span>${esc(s.album||'')} ${s.audioUrl?'· has audio':'· no audio'}</span></div>
+        <button class="icon-btn danger" onclick="deleteSong('${s.id}')">🗑</button>
+      </div>`).join("") || `<div class="empty-state">No songs yet.</div>`}
+  </div>
+
+  <div class="admin-card">
+    <h3>Add a release (album/EP)</h3>
+    <div class="field"><label>Title</label><input id="na_title" placeholder="Release title"></div>
+    <div class="field"><label>Year</label><input id="na_year" placeholder="2026"></div>
+    <div class="field"><label>Artwork</label>${uploaderHTML("na","", "Click to upload release artwork")}</div>
+    <button class="btn solid" onclick="addAlbum()">Add release</button>
+  </div>
+  <div class="admin-card">
+    <h3>Releases (${music.albums.length})</h3>
+    ${music.albums.map(a=>`
+      <div class="list-item">
+        <img src="${esc(a.artwork)}">
+        <div class="grow"><b>${esc(a.title)}</b><span>${esc(a.year||'')}</span></div>
+        <button class="icon-btn danger" onclick="deleteAlbum('${a.id}')">🗑</button>
+      </div>`).join("") || `<div class="empty-state">No releases yet.</div>`}
+  </div>`;
+}
+function wireMusicUploaders(){
+  pendingSongArt = null;
+  window._pendingAlbumArt = null;
+  wireUploader("artist","artists", async url=>{ music.artistPhoto=url; await saveMusic(); showToast("Artist photo updated ✓"); });
+  wireUploader("banner","banners", async url=>{ music.bannerImage=url; await saveMusic(); showToast("Banner updated ✓"); });
+  wireUploader("ns","songs", url=>{ pendingSongArt = url; });
+  wireUploader("na","albums", url=>{ window._pendingAlbumArt = url; });
+}
+async function saveArtistName(){
+  music.artistName = document.getElementById("m_name").value;
+  const ok = await saveMusic();
+  showToast(ok ? "Artist name saved ✓" : "Save failed.");
+}
+async function addSong(){
+  const title = document.getElementById("ns_title").value.trim();
+  const album = document.getElementById("ns_album").value.trim();
+  const duration = document.getElementById("ns_dur").value.trim();
+  const audioUrl = document.getElementById("ns_audio").value.trim();
+  if(!title){ showToast("Please add a title."); return; }
+  if(!pendingSongArt){ showToast("Please upload artwork first."); return; }
+  music.songs.unshift({id:uid(), title, album, duration, audioUrl, artwork:pendingSongArt});
+  pendingSongArt = null;
+  const ok = await saveMusic();
+  showToast(ok ? "Song added ✓" : "Save failed.");
+  renderTab(); wireMusicUploaders();
+}
+async function deleteSong(id){
+  music.songs = music.songs.filter(s=>s.id!==id);
+  await saveMusic();
+  showToast("Song removed.");
+  renderTab(); wireMusicUploaders();
+}
+async function addAlbum(){
+  const title = document.getElementById("na_title").value.trim();
+  const year = document.getElementById("na_year").value.trim();
+  const artwork = window._pendingAlbumArt;
+  if(!title){ showToast("Please add a title."); return; }
+  if(!artwork){ showToast("Please upload artwork first."); return; }
+  music.albums.unshift({id:uid(), title, year, artwork});
+  window._pendingAlbumArt = null;
+  const ok = await saveMusic();
+  showToast(ok ? "Release added ✓" : "Save failed.");
+  renderTab(); wireMusicUploaders();
+}
+async function deleteAlbum(id){
+  music.albums = music.albums.filter(a=>a.id!==id);
+  await saveMusic();
+  showToast("Release removed.");
+  renderTab(); wireMusicUploaders();
+}
+
+/* wire uploaders after each tab render */
+const _origRenderTab = renderTab;
+renderTab = function(){
+  _origRenderTab();
+  if(adminTab === "site") wireSiteUploaders();
+  if(adminTab === "projects") wireProjectsUploaders();
+  if(adminTab === "music") wireMusicUploaders();
+};
+
+boot();
+</script>
+</body>
+</html>
