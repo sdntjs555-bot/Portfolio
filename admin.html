@@ -80,6 +80,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 <div id="toast" class="toast"></div>
 
 <script>
+window.addEventListener('error', function(e){
+  document.body.innerHTML = '<div style="padding:30px;color:#fff;background:#0a0a0b;font-family:monospace;font-size:14px;white-space:pre-wrap;line-height:1.6;">⚠ Page error:\n\n' + e.message + '\n\nFile: ' + (e.filename||'').split('/').pop() + '  Line: ' + e.lineno + '</div>';
+});
 /* =====================================================================
    ADMIN PANEL — separate page from the public site on purpose.
    Nobody browsing the public site will ever see a link to this file;
